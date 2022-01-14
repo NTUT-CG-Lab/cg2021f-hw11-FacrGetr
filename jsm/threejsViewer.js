@@ -87,28 +87,79 @@ class threejsViewer {
             }
         }
 
-        //•—ºvπ≥∏ÍÆ∆•Õ¶®º“´¨
+        //Áî±ÂΩ±ÂÉèÁîüÊàêÊ®°Âûã
         this.renderVolume = function (volume, colormap, arg) {
 
             const name = 'volume'
             let dims = volume.dims
             let uniforms = null
             let mesh = this.scene.getObjectByName(name)
-            let scale = 1 / Math.max(...dims)
+            let scale = 1 / Math.max(dims[0], dims[1], dims[2])
 
             if (mesh == null) {
-                // º“´¨™Ï©l§∆
-            }
-            else if (volume.used && uniforms["u_sizeEnable"].value != 1) {
-                // Size data™Ï©l§∆
-            }
-            else if (volume.used) {
-                // ßÛ∑s∞—º∆(•]ßtsize data)
+                //first time initial
+                let geometry = new THREE.BoxGeometry(dims[0], dims[1], dims[2])
+                geometry.translate(dims[0] / 2, dims[1] / 2, dims[2] / 2)
+
+                let shader = VolumeRenderShader1
+
+                const texture = new THREE.DataTexture3D(volume.alpha, dims[0], dims[1], dims[2]);
+                texture.format = THREE.RedFormat;
+                texture.type = THREE.UnsignedByteType;
+                texture.minFilter = texture.magFilter = THREE.LinearFilter;
+
+                let cmtexture = new THREE.DataTexture(colormap, 256, 1, THREE.RGBAFormat)
+
+                let material = new THREE.ShaderMaterial(
+                    {
+                        uniforms: {
+                            'u_data': { value: texture },
+                            'u_size': { value: new THREE.Vector3(dims[0], dims[1], dims[2]) },
+                            'u_cmdata': { value: cmtexture },
+                            'u_renderstyle': { value: arg.renderType },
+                            'u_sizeEnable': { value: 0 },
+                            'u_sizeData': { value: null }                    
+                    },
+                    vertexShader: shader.vertexShader,
+                    fragmentShader: shader.fragmentShader,
+                    side: THREE.BackSide
+                    }
+                )
+                mesh = new THREE.Mesh(geometry, material)
+                mesh.name = name
+                mesh.position.set(0,0,0)
+                mesh.scale.set(scale,scale,scale)
+
+                this.scene.add(mesh)
             }
             else {
-                // ßÛ∑s∞—º∆
+                uniforms = mesh.material.uniforms
+                uniforms['u_cmdata'].value = new THREE.DataTexture(colormap, 256, 1, THREE.RGBAFormat)
+
+
+
+
+                uniforms['u_renderstyle'].value = arg.renderType
+            }            
+
+            if (volume.used) {
+                uniforms = mesh.material.uniforms
+                if (uniforms['u_sizeEnable'] == 0) {
+                    //
+
+                    let texture = new THREE.DataTexture3D(volume.u_sizeData, dims[0], dims[1], dims[2])
+                    //
+                    //
+
+                    uniforms['u_sizeEnable'].value = 1
+                    uniforms['u_sizeData'].value = texture
+                }
+                else {
+                    uniforms['u_sizeEnable'].value.image = { data: volume.sizeData }
+                    uniforms['u_sizeEnable'].value.needUpdata = true
+                }
             }
-           
+
             this.renderScene()
         }
 
